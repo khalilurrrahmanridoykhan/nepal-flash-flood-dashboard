@@ -1,41 +1,76 @@
 "use client";
-import { useEffect, useRef } from "react";
-import * as maplibregl from "maplibre-gl";
-import type { GeoJSONSource, Map } from "maplibre-gl";
-import "maplibre-gl/dist/maplibre-gl.css";
-import { districtOutlines, infrastructure, riverCoordinates, timelineEvents } from "@/lib/incident-data";
 
+import { useEffect, useRef, useState } from "react";
+import * as maplibregl from "maplibre-gl";
+import type { Map } from "maplibre-gl";
+import "maplibre-gl/dist/maplibre-gl.css";
+import { infrastructure, riverCoordinates, timelineEvents } from "@/lib/incident-data";
+
+type Point = { x: number; y: number };
 type Props = { progress: number; activeEvent: number; onSelectEvent: (index: number) => void; visibleLayers: Record<string, boolean> };
-const mapStyle = { version: 8 as const, sources: { osm: { type: "raster" as const, tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"], tileSize: 256, attribution: "© OpenStreetMap contributors" }, satellite: { type: "raster" as const, tiles: ["https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"], tileSize: 256, attribution: "Tiles © Esri" } }, layers: [{ id: "background", type: "background" as const, paint: { "background-color": "#081116" } }, { id: "osm", type: "raster" as const, source: "osm", paint: { "raster-saturation": -0.9, "raster-brightness-max": 0.42, "raster-contrast": 0.25 } }, { id: "satellite-raster", type: "raster" as const, source: "satellite", layout: { visibility: "none" as const }, paint: { "raster-saturation": -0.25, "raster-brightness-max": 0.7, "raster-contrast": 0.15 } }] };
+
+const mapStyle = {
+  version: 8 as const,
+  sources: {
+    osm: { type: "raster" as const, tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"], tileSize: 256, attribution: "© OpenStreetMap contributors" },
+    satellite: { type: "raster" as const, tiles: ["https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"], tileSize: 256, attribution: "Tiles © Esri" },
+  },
+  layers: [
+    { id: "background", type: "background" as const, paint: { "background-color": "#081116" } },
+    { id: "osm", type: "raster" as const, source: "osm", paint: { "raster-saturation": -0.9, "raster-brightness-max": 0.42, "raster-contrast": 0.25 } },
+    { id: "satellite-raster", type: "raster" as const, source: "satellite", layout: { visibility: "none" as const }, paint: { "raster-saturation": -0.25, "raster-brightness-max": 0.7, "raster-contrast": 0.15 } },
+  ],
+};
 
 export default function FloodMap({ progress, activeEvent, onSelectEvent, visibleLayers }: Props) {
-  const container = useRef<HTMLDivElement>(null); const mapRef = useRef<Map | null>(null);
+  const mapContainer = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<Map | null>(null);
+  const [routePoints, setRoutePoints] = useState<Point[]>([]);
+  const [infrastructurePoints, setInfrastructurePoints] = useState<Point[]>([]);
+
   useEffect(() => {
-    if (!container.current || mapRef.current) return;
-    const map = new maplibregl.Map({ container: container.current, style: mapStyle, center: [85.28, 28.07], zoom: 9.2, pitch: 48, bearing: -18, attributionControl: false });
-    map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "bottom-right"); map.addControl(new maplibregl.AttributionControl({ compact: true }), "bottom-left");
-    map.on("load", () => {
-      const line = { type: "Feature" as const, properties: {}, geometry: { type: "LineString" as const, coordinates: riverCoordinates } };
-      map.addSource("river", { type: "geojson", data: line });
-      map.addLayer({ id: "river-halo", type: "line", source: "river", paint: { "line-color": "#05141d", "line-width": 11, "line-opacity": 0.88 } });
-      map.addLayer({ id: "river-route", type: "line", source: "river", paint: { "line-color": "#35b9ff", "line-width": 5, "line-opacity": 0.9, "line-dasharray": [1, 1.2] } });
-      map.addSource("progress", { type: "geojson", lineMetrics: true, data: line });
-      map.addLayer({ id: "progress-line", type: "line", source: "progress", paint: { "line-color": "#b9efff", "line-width": 8, "line-opacity": 0.95 } });
-      map.addSource("events", { type: "geojson", data: { type: "FeatureCollection", features: timelineEvents.map((event, index) => ({ type: "Feature", properties: { index, place: event.place, status: event.status }, geometry: { type: "Point", coordinates: event.coordinates } })) } });
-      map.addLayer({ id: "event-glow", type: "circle", source: "events", paint: { "circle-radius": 13, "circle-color": "#35b9ff", "circle-opacity": 0.16 } });
-      map.addLayer({ id: "event-points", type: "circle", source: "events", paint: { "circle-radius": 5, "circle-color": ["match", ["get", "status"], "estimated", "#ffb454", "#d4ff62"], "circle-stroke-color": "#071116", "circle-stroke-width": 2 } });
-      map.addLayer({ id: "event-labels", type: "symbol", source: "events", layout: { "text-field": ["get", "place"], "text-size": 12, "text-offset": [0, 1.4], "text-anchor": "top" }, paint: { "text-color": "#f4f8fa", "text-halo-color": "#071116", "text-halo-width": 1.5 } });
-      map.addSource("infrastructure", { type: "geojson", data: { type: "FeatureCollection", features: infrastructure.map((item) => ({ type: "Feature", properties: item, geometry: { type: "Point", coordinates: item.coordinates } })) } });
-      map.addLayer({ id: "infrastructure-points", type: "circle", source: "infrastructure", paint: { "circle-radius": 6, "circle-color": "#d4ff62", "circle-stroke-color": "#0a151b", "circle-stroke-width": 2 } });
-      map.addLayer({ id: "infrastructure-labels", type: "symbol", source: "infrastructure", layout: { "text-field": ["get", "name"], "text-size": 10, "text-offset": [0, -1.5], "text-anchor": "bottom" }, paint: { "text-color": "#d4ff62", "text-halo-color": "#071116", "text-halo-width": 1.5 } });
-      map.addSource("districts", { type: "geojson", data: districtOutlines });
-      map.addLayer({ id: "district-lines", type: "line", source: "districts", layout: { visibility: "none" }, paint: { "line-color": "#b5c1c8", "line-width": 1.2, "line-dasharray": [3, 2], "line-opacity": 0.75 } });
-      map.on("click", "event-points", (e) => { const f = e.features?.[0]; if (f) onSelectEvent(Number(f.properties?.index)); });
-      map.on("mouseenter", "event-points", () => { map.getCanvas().style.cursor = "pointer"; }); map.on("mouseleave", "event-points", () => { map.getCanvas().style.cursor = ""; });
-    }); mapRef.current = map; return () => { map.remove(); mapRef.current = null; };
-  }, [onSelectEvent]);
-  useEffect(() => { const map = mapRef.current; if (!map?.isStyleLoaded()) return; const count = Math.max(2, Math.ceil(progress * (riverCoordinates.length - 1)) + 1); (map.getSource("progress") as GeoJSONSource | undefined)?.setData({ type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: riverCoordinates.slice(0, count) } }); }, [progress]);
-  useEffect(() => { const map = mapRef.current; const event = timelineEvents[activeEvent]; if (map && event) map.easeTo({ center: event.coordinates, zoom: activeEvent === 0 ? 10.5 : 10, duration: 1200, essential: true }); }, [activeEvent]);
-  useEffect(() => { const map = mapRef.current; if (!map?.isStyleLoaded()) return; ["river-halo", "river-route", "progress-line"].forEach((id) => map.getLayer(id) && map.setLayoutProperty(id, "visibility", visibleLayers.route ? "visible" : "none")); ["event-glow", "event-points", "event-labels"].forEach((id) => map.getLayer(id) && map.setLayoutProperty(id, "visibility", visibleLayers.places ? "visible" : "none")); ["infrastructure-points", "infrastructure-labels"].forEach((id) => map.getLayer(id) && map.setLayoutProperty(id, "visibility", visibleLayers.infrastructure ? "visible" : "none")); if (map.getLayer("district-lines")) map.setLayoutProperty("district-lines", "visibility", visibleLayers.districts ? "visible" : "none"); if (map.getLayer("satellite-raster")) { map.setLayoutProperty("satellite-raster", "visibility", visibleLayers.satellite ? "visible" : "none"); map.setPaintProperty("osm", "raster-opacity", visibleLayers.satellite ? 0 : 1); } }, [visibleLayers]);
-  return <div ref={container} className="map-canvas" aria-label="Interactive map of the Bhotekoshi–Trishuli flood corridor" />;
+    if (!mapContainer.current || mapRef.current) return;
+    const map = new maplibregl.Map({ container: mapContainer.current, style: mapStyle, center: [85.28, 28.07], zoom: 9.2, pitch: 48, bearing: -18, attributionControl: false });
+    map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "bottom-right");
+    map.addControl(new maplibregl.AttributionControl({ compact: true }), "bottom-left");
+    const projectEvidence = () => {
+      setRoutePoints(riverCoordinates.map((coordinates) => map.project(coordinates)));
+      setInfrastructurePoints(infrastructure.map((item) => map.project(item.coordinates as [number, number])));
+    };
+    map.on("style.load", () => { if (mapContainer.current) mapContainer.current.dataset.mapReady = "true"; projectEvidence(); });
+    map.on("move", projectEvidence);
+    map.on("resize", projectEvidence);
+    mapRef.current = map;
+    return () => { map.remove(); mapRef.current = null; };
+  }, []);
+
+  useEffect(() => {
+    const map = mapRef.current; const event = timelineEvents[activeEvent];
+    if (map && event) map.easeTo({ center: event.coordinates, zoom: activeEvent === 0 ? 10.5 : 10, duration: 1200, essential: true });
+  }, [activeEvent]);
+
+  useEffect(() => {
+    const map = mapRef.current; if (!map?.getLayer("satellite-raster")) return;
+    map.setLayoutProperty("satellite-raster", "visibility", visibleLayers.satellite ? "visible" : "none");
+    map.setPaintProperty("osm", "raster-opacity", visibleLayers.satellite ? 0 : 1);
+  }, [visibleLayers.satellite]);
+
+  const lastPoint = Math.max(1, Math.ceil(progress * (routePoints.length - 1)));
+  const completedRoute = routePoints.slice(0, lastPoint + 1).map((point) => `${point.x},${point.y}`).join(" ");
+  const fullRoute = routePoints.map((point) => `${point.x},${point.y}`).join(" ");
+
+  return <div className="map-root">
+    <div ref={mapContainer} className="map-canvas" aria-label="Interactive map of the Bhotekoshi–Trishuli flood corridor" />
+    <svg className="evidence-overlay" aria-label="Flood route and evidence locations">
+      {visibleLayers.route && <>
+        <polyline className="route-halo" points={fullRoute} />
+        <polyline className="route-base" points={fullRoute} />
+        <polyline className="route-progress" points={completedRoute} />
+      </>}
+      {visibleLayers.places && routePoints.map((point, index) => <g key={timelineEvents[index].id} className={`evidence-marker ${timelineEvents[index].status} ${index === activeEvent ? "active" : ""}`} transform={`translate(${point.x} ${point.y})`} onClick={() => onSelectEvent(index)} role="button" aria-label={`Select ${timelineEvents[index].place}`}>
+        <circle className="marker-glow" r="13" /><circle className="marker-dot" r="5" /><text y="20" textAnchor="middle">{timelineEvents[index].place}</text>
+      </g>)}
+      {visibleLayers.infrastructure && infrastructurePoints.map((point, index) => <g key={infrastructure[index].id} className="infrastructure-marker" transform={`translate(${point.x} ${point.y})`}><rect x="-5" y="-5" width="10" height="10" rx="2" /><text y="-12" textAnchor="middle">{infrastructure[index].name}</text></g>)}
+    </svg>
+  </div>;
 }
