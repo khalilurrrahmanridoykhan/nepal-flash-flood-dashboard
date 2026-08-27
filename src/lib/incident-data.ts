@@ -17,4 +17,20 @@ export const layers = [
   { id: "places", label: "Affected places", color: "#ffb454", defaultOn: true },
   { id: "infrastructure", label: "Infrastructure", color: "#d4ff62", defaultOn: true },
   { id: "districts", label: "District boundaries", color: "#a6afbd", defaultOn: false },
+  { id: "satellite", label: "Satellite imagery", color: "#bd9bff", defaultOn: false },
 ];
+
+export const infrastructure = [
+  { id: "rasuwagadhi", name: "Rasuwagadhi HEP", kind: "Hydropower", coordinates: [85.364, 28.219], status: "Damage reported" },
+  { id: "chilime", name: "Chilime HEP", kind: "Hydropower", coordinates: [85.315, 28.187], status: "Damage reported" },
+  { id: "trishuli3a", name: "Trishuli 3A", kind: "Hydropower", coordinates: [85.183, 27.989], status: "Damage reported" },
+  { id: "trishuli3b", name: "Trishuli 3B hub", kind: "Substation", coordinates: [85.174, 27.951], status: "Damage reported" },
+];
+
+export const districtOutlines = {
+  type: "FeatureCollection" as const,
+  features: [
+    { type: "Feature" as const, properties: { name: "Rasuwa" }, geometry: { type: "Polygon" as const, coordinates: [[[85.05, 27.92], [85.05, 28.34], [85.52, 28.34], [85.52, 27.92], [85.05, 27.92]]] } },
+    { type: "Feature" as const, properties: { name: "Nuwakot" }, geometry: { type: "Polygon" as const, coordinates: [[[84.98, 27.72], [84.98, 28.04], [85.42, 28.04], [85.42, 27.72], [84.98, 27.72]]] } },
+  ],
+};
