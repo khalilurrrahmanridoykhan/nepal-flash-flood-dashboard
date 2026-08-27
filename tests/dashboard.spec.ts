@@ -1,7 +1,10 @@
 import { expect, test } from "@playwright/test";
 
-test("renders a full-height interactive map", async ({ page }) => {
+test("renders the 3D reconstruction and switchable interactive map", async ({ page }) => {
   await page.goto("/");
+  await expect(page.getByTestId("cinematic-scene")).toBeVisible();
+  await expect(page.getByTestId("cinematic-scene").locator("canvas")).toBeVisible();
+  await page.getByRole("button", { name: "Map", exact: true }).click();
   const map = page.locator(".maplibregl-map");
   await expect(map).toBeVisible();
   await expect(map).toHaveAttribute("data-map-ready", "true");
