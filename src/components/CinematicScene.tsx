@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import * as maplibregl from "maplibre-gl";
-import type { Map, StyleSpecification } from "maplibre-gl";
+import type { GeoJSONSource, Map, StyleSpecification } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { riverCoordinates, timelineEvents } from "@/lib/incident-data";
 import { trisuliRiver } from "@/data/trisuli-river";
@@ -30,19 +30,38 @@ const terrainStyle: StyleSpecification = {
   ],
 };
 
-export default function CinematicScene({ activeEvent }: Props) {
-  const container = useRef<HTMLDivElement>(null); const mapRef = useRef<Map | null>(null); const [eventPoints, setEventPoints] = useState<Point[]>([]); const [ready, setReady] = useState(false);
+export default function CinematicScene({ progress, activeEvent }: Props) {
+  const container = useRef<HTMLDivElement>(null); const mapRef = useRef<Map | null>(null); const flowMarkers = useRef<maplibregl.Marker[]>([]); const [eventPoints, setEventPoints] = useState<Point[]>([]); const [ready, setReady] = useState(false);
   useEffect(() => {
     const host = container.current; if (!host || mapRef.current) return;
     const map = new maplibregl.Map({ container: host, style: terrainStyle, center: [85.27, 28.07], zoom: 11.4, pitch: 62, bearing: -22, maxPitch: 80, attributionControl: false, canvasContextAttributes: { antialias: true } });
     map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "bottom-right"); map.addControl(new maplibregl.AttributionControl({ compact: true }), "bottom-left");
     const project = () => { setEventPoints(riverCoordinates.map((coordinate) => map.project(coordinate))); };
     map.on("style.load", () => {
+      map.addSource("terrain-flood", { type: "geojson", lineMetrics: true, data: { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: trisuliRiver.slice(0, 2) } } });
+      map.addLayer({ id: "terrain-flood-shadow", type: "line", source: "terrain-flood", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": "#241910", "line-width": ["interpolate", ["linear"], ["zoom"], 10, 7, 15, 18], "line-opacity": 0 } });
+      map.addLayer({ id: "terrain-flood-water", type: "line", source: "terrain-flood", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-gradient": ["interpolate", ["linear"], ["line-progress"], 0, "#3b6864", .68, "#806044", .9, "#b28a5d", 1, "#ead7ad"], "line-width": ["interpolate", ["linear"], ["zoom"], 10, 5, 15, 14], "line-opacity": 0, "line-blur": .5 } });
+      map.addLayer({ id: "terrain-flood-motion", type: "line", source: "terrain-flood", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": "#f4ead5", "line-width": ["interpolate", ["linear"], ["zoom"], 10, 1, 15, 2.2], "line-dasharray": [1, 4], "line-opacity": 0 } });
       host.dataset.riverVertices = String(trisuliRiver.length); setReady(true); project();
     }); map.on("move", project); map.on("resize", project); mapRef.current = map;
     return () => { map.remove(); mapRef.current = null; };
   }, []);
   useEffect(() => { const map = mapRef.current, event = timelineEvents[activeEvent]; if (!map || !event) return; const previous = timelineEvents[Math.max(0, activeEvent - 1)].coordinates; const bearing = Math.atan2(event.coordinates[0] - previous[0], event.coordinates[1] - previous[1]) * 180 / Math.PI; map.flyTo({ center: event.coordinates, zoom: activeEvent === 0 ? 14.6 : 15.2, pitch: 48, bearing: Number.isFinite(bearing) && activeEvent > 0 ? bearing : -22, duration: 1500, essential: true }); }, [activeEvent]);
+  useEffect(() => {
+    const map = mapRef.current; const source = map?.getSource("terrain-flood") as GeoJSONSource | undefined; if (!map || !source || !ready) return;
+    const target = timelineEvents[activeEvent].coordinates; let nearestIndex = 1, nearestDistance = Infinity;
+    trisuliRiver.forEach((coordinate, index) => { const distance = Math.hypot(coordinate[0] - target[0], coordinate[1] - target[1]); if (distance < nearestDistance) { nearestDistance = distance; nearestIndex = index; } });
+    source.setData({ type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: trisuliRiver.slice(0, Math.max(2, nearestIndex + 1)) } });
+    const visible = progress > 0; map.setPaintProperty("terrain-flood-shadow", "line-opacity", visible ? .48 : 0); map.setPaintProperty("terrain-flood-water", "line-opacity", visible ? .76 : 0); map.setPaintProperty("terrain-flood-motion", "line-opacity", visible ? .82 : 0);
+  }, [progress, activeEvent, ready]);
+  useEffect(() => {
+    const map = mapRef.current; if (!map || !ready) return; flowMarkers.current.forEach((marker) => marker.remove()); flowMarkers.current = []; if (progress === 0) return;
+    const nearest = (target: [number, number]) => { let found = 0, distance = Infinity; trisuliRiver.forEach((coordinate, index) => { const next = Math.hypot(coordinate[0] - target[0], coordinate[1] - target[1]); if (next < distance) { distance = next; found = index; } }); return found; };
+    const end = nearest(timelineEvents[activeEvent].coordinates); const start = Math.max(0, nearest(timelineEvents[Math.max(0, activeEvent - 1)].coordinates) - 3); const segment = trisuliRiver.slice(start, Math.max(start + 2, end + 1));
+    for (let index = 0; index < 14; index++) { const element = document.createElement("span"); element.className = "water-particle"; element.style.animationDelay = `${-index * .11}s`; flowMarkers.current.push(new maplibregl.Marker({ element, anchor: "center" }).setLngLat(segment[0]).addTo(map)); }
+    let frame = 0; const started = performance.now(); const animate = (now: number) => { const elapsed = (now - started) / 2600; flowMarkers.current.forEach((marker, index) => { const cursor = ((elapsed + index / flowMarkers.current.length) % 1) * (segment.length - 1); const base = Math.floor(cursor), mix = cursor - base, a = segment[base], b = segment[Math.min(segment.length - 1, base + 1)]; marker.setLngLat([a[0] + (b[0] - a[0]) * mix, a[1] + (b[1] - a[1]) * mix]); }); frame = requestAnimationFrame(animate); }; frame = requestAnimationFrame(animate);
+    return () => { cancelAnimationFrame(frame); flowMarkers.current.forEach((marker) => marker.remove()); flowMarkers.current = []; };
+  }, [progress, activeEvent, ready]);
   return <div className="real-terrain" data-testid="cinematic-scene"><div ref={container} className="real-terrain-map" />
     {ready && <svg className="terrain-evidence" aria-label="Reported flood locations on real satellite terrain">
       {eventPoints.map((point, index) => <g key={timelineEvents[index].id} className={`terrain-point ${index === activeEvent ? "active" : ""}`} transform={`translate(${point.x} ${point.y})`}><circle r={index === activeEvent ? 7 : 4} /><text y="18" textAnchor="middle">{timelineEvents[index].place}</text></g>)}
