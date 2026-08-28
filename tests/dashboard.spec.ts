@@ -4,8 +4,7 @@ test("renders the 3D reconstruction and switchable interactive map", async ({ pa
   await page.goto("/");
   await expect(page.getByTestId("cinematic-scene")).toBeVisible();
   await expect(page.getByTestId("cinematic-scene").locator("canvas")).toBeVisible();
-  const riverVertices = await page.locator(".terrain-corridor").getAttribute("points");
-  expect(riverVertices?.trim().split(" ").length).toBeGreaterThan(150);
+  await expect(page.locator(".real-terrain-map")).toHaveAttribute("data-river-vertices", "164");
   await page.getByRole("button", { name: "Map", exact: true }).click();
   const map = page.locator(".maplibregl-map");
   await expect(map).toBeVisible();
