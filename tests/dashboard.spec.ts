@@ -24,7 +24,7 @@ test("timeline selection updates the evidence card", async ({ page }) => {
   await page.getByRole("button", { name: "Go to Betrawati" }).click();
   await expect(page.getByRole("heading", { name: "Betrawati" })).toBeVisible();
   await expect(page.locator(".event-card").getByText("11:10 NPT")).toBeVisible();
-  await expect(page.locator(".water-marker")).toHaveCount(24);
+  await expect(page.locator(".water-marker")).toHaveCount(72);
 });
 
 test("health endpoint exposes the approved dataset", async ({ request }) => {
