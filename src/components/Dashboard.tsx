@@ -5,7 +5,7 @@ import { Activity, ChevronDown, CircleAlert, Clock3, ExternalLink, Layers3, Map 
 import { layers, situation, timelineEvents } from "@/lib/incident-data";
 const FloodMap = dynamic(() => import("./FloodMap"), { ssr: false, loading: () => <div className="map-loading">Loading terrain map…</div> });
 const CinematicScene = dynamic(() => import("./CinematicScene"), { ssr: false, loading: () => <div className="map-loading">Building 3D reconstruction…</div> });
-const RECONSTRUCTION_MS = 180000;
+const RECONSTRUCTION_MS = 360000;
 
 export default function Dashboard() {
   const [progress, setProgress] = useState(0); const cycleStarted = useRef<number | null>(null); const [layersOpen, setLayersOpen] = useState(true);
