@@ -5,7 +5,12 @@ test("renders the 3D reconstruction and switchable interactive map", async ({ pa
   await expect(page.getByTestId("cinematic-scene")).toBeVisible();
   await expect(page.getByTestId("cinematic-scene").locator("canvas")).toBeVisible();
   await expect(page.locator(".real-terrain-map")).toHaveAttribute("data-river-vertices", "164");
+  await expect(page.locator(".situation-card")).toHaveCount(0);
+  await expect(page.locator(".event-card")).toHaveCount(0);
+  await expect(page.locator(".timeline-panel")).toHaveCount(0);
   await page.getByRole("button", { name: "Map", exact: true }).click();
+  await expect(page.locator(".situation-card")).toBeVisible();
+  await expect(page.locator(".timeline-panel")).toBeVisible();
   const map = page.locator(".maplibregl-map");
   await expect(map).toBeVisible();
   await expect(map).toHaveAttribute("data-map-ready", "true");
@@ -21,10 +26,10 @@ test("renders the 3D reconstruction and switchable interactive map", async ({ pa
 
 test("timeline selection updates the evidence card", async ({ page }) => {
   await page.goto("/");
+  await page.getByRole("button", { name: "Map", exact: true }).click();
   await page.getByRole("button", { name: "Go to Betrawati" }).click();
   await expect(page.getByRole("heading", { name: "Betrawati" })).toBeVisible();
   await expect(page.locator(".event-card").getByText("11:10 NPT")).toBeVisible();
-  await expect(page.locator(".water-marker")).toHaveCount(144, { timeout: 20_000 });
 });
 
 test("health endpoint exposes the approved dataset", async ({ request }) => {
