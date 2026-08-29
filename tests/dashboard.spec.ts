@@ -5,7 +5,8 @@ test("renders the 3D reconstruction and switchable interactive map", async ({ pa
   await expect(page.getByTestId("cinematic-scene")).toBeVisible();
   await expect(page.getByTestId("cinematic-scene").locator("canvas")).toBeVisible();
   await expect(page.locator(".real-terrain-map")).toHaveAttribute("data-river-vertices", "164");
-  await expect(page.locator(".real-terrain-map")).toHaveAttribute("data-water-surface", "terrain-aligned", { timeout: 20_000 });
+  await expect(page.locator(".real-terrain-map")).toHaveAttribute("data-water-surface", "continuous-overlay", { timeout: 20_000 });
+  await expect(page.locator(".flow-surface")).toBeVisible();
   await expect(page.locator(".situation-card")).toHaveCount(0);
   await expect(page.locator(".event-card")).toHaveCount(0);
   await expect(page.locator(".timeline-panel")).toHaveCount(0);
