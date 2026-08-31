@@ -1,22 +1,23 @@
 "use client";
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Activity, ChevronDown, CircleAlert, Clock3, ExternalLink, Layers3, Map as MapIcon, MapPin, Mountain } from "lucide-react";
+import { Activity, ChevronDown, CircleAlert, Clock3, ExternalLink, Images, Layers3, Map as MapIcon, MapPin, Mountain } from "lucide-react";
 import { layers, situation, timelineEvents } from "@/lib/incident-data";
 const FloodMap = dynamic(() => import("./FloodMap"), { ssr: false, loading: () => <div className="map-loading">Loading terrain map…</div> });
 const CinematicScene = dynamic(() => import("./CinematicScene"), { ssr: false, loading: () => <div className="map-loading">Building 3D reconstruction…</div> });
+const BeforeAfterEvidence = dynamic(() => import("./BeforeAfterEvidence"), { ssr: false });
 const RECONSTRUCTION_MS = 360000;
 
 export default function Dashboard() {
   const [progress, setProgress] = useState(0); const cycleStarted = useRef<number | null>(null); const [layersOpen, setLayersOpen] = useState(true);
-  const [view, setView] = useState<"3d" | "map">("3d");
+  const [view, setView] = useState<"3d" | "map" | "comparison">("3d");
   const [visibleLayers, setVisibleLayers] = useState<Record<string, boolean>>(() => Object.fromEntries(layers.map((layer) => [layer.id, layer.defaultOn])));
   let activeEvent = 0; timelineEvents.forEach((item, index) => { if (progress >= item.minutes / timelineEvents.at(-1)!.minutes) activeEvent = index; }); const event = timelineEvents[activeEvent]; const selectEvent = useCallback((index: number) => { const selected = timelineEvents[index].minutes / timelineEvents.at(-1)!.minutes; cycleStarted.current = performance.now() - selected * RECONSTRUCTION_MS; setProgress(selected); }, []);
   useEffect(() => { const holdMs = 5000; cycleStarted.current = performance.now(); const timer = window.setInterval(() => { const elapsed = performance.now() - (cycleStarted.current ?? performance.now()), position = elapsed % (RECONSTRUCTION_MS + holdMs); setProgress(position >= RECONSTRUCTION_MS ? 1 : position / RECONSTRUCTION_MS); if (position < 60 && elapsed > RECONSTRUCTION_MS + holdMs) cycleStarted.current = performance.now(); }, 50); return () => window.clearInterval(timer); }, []);
   const statusLabel = event.status === "estimated" ? "Estimated progression" : event.status === "observed" ? "Observed" : "Reported";
   return <main className="dashboard-shell">
-    <section className="map-stage">{view === "3d" ? <CinematicScene progress={progress} activeEvent={activeEvent} /> : <FloodMap progress={progress} activeEvent={activeEvent} onSelectEvent={selectEvent} visibleLayers={visibleLayers} />}<div className="map-vignette" />
-      <div className="view-switch glass-panel" role="group" aria-label="Visualization view"><button className={view === "3d" ? "active" : ""} onClick={() => setView("3d")}><Mountain size={14} /> Real 3D terrain</button><button className={view === "map" ? "active" : ""} onClick={() => setView("map")}><MapIcon size={14} /> Map</button></div>
+    <section className="map-stage">{view === "3d" ? <CinematicScene progress={progress} activeEvent={activeEvent} /> : view === "map" ? <FloodMap progress={progress} activeEvent={activeEvent} onSelectEvent={selectEvent} visibleLayers={visibleLayers} /> : <BeforeAfterEvidence />}<div className="map-vignette" />
+      <div className="view-switch glass-panel" role="group" aria-label="Visualization view"><button className={view === "3d" ? "active" : ""} onClick={() => setView("3d")}><Mountain size={14} /> Real 3D terrain</button><button className={view === "map" ? "active" : ""} onClick={() => setView("map")}><MapIcon size={14} /> Map</button><button className={view === "comparison" ? "active" : ""} onClick={() => setView("comparison")}><Images size={14} /> Before &amp; after</button></div>
       {view === "map" && <><section className="situation-card glass-panel"><div className="eyebrow"><Activity size={14} /> Situation at a glance</div><div className="metrics"><div><strong>{situation.deaths}</strong><span>reported dead</span></div><div><strong>{situation.missing}</strong><span>reported missing</span></div><div><strong>{situation.districts}</strong><span>districts affected</span></div><div><strong>{situation.roadDamage}</strong><span>road damaged</span></div></div><p><CircleAlert size={13} /> Figures are evolving and may differ by source.</p></section>
       <aside className="event-card glass-panel"><div className="event-card-top"><span className={`evidence-pill ${event.status}`}>{statusLabel}</span><span>{event.district}</span></div><p className="event-time">{event.time} <small>NPT</small></p><h2>{event.place}</h2><h3>{event.summary}</h3><p>{event.detail}</p><a href={event.sourceUrl} target={event.sourceUrl.startsWith("http") ? "_blank" : undefined} rel="noreferrer">{event.source} <ExternalLink size={13} /></a></aside>
       <aside className={`layer-panel glass-panel ${layersOpen ? "open" : ""}`}><button className="panel-heading" onClick={() => setLayersOpen(!layersOpen)}><span><Layers3 size={16} /> Map layers</span><ChevronDown size={16} /></button>{layersOpen && <div className="layer-list">{layers.map((layer) => <label key={layer.id}><input type="checkbox" checked={visibleLayers[layer.id]} onChange={() => setVisibleLayers((c) => ({ ...c, [layer.id]: !c[layer.id] }))} /><span className="layer-swatch" style={{ background: layer.color }} />{layer.label}</label>)}</div>}</aside>
