@@ -26,7 +26,11 @@ test("renders the 3D reconstruction and switchable interactive map", async ({ pa
   await expect(page.locator(".evidence-marker")).toHaveCount(7);
   await page.getByRole("button", { name: "Before & after" }).click();
   await expect(page.getByTestId("before-after-evidence")).toBeVisible();
-  await expect(page.locator(".comparison-video")).toHaveAttribute("poster", "/media/rasuwa-sentinel2-poster.jpg");
+  await expect(page.locator(".comparison-image img")).toHaveCount(2);
+  await page.getByLabel("Before and after comparison divider").fill("65");
+  await expect(page.locator(".swipe-divider")).toHaveAttribute("style", /65%/);
+  await page.getByRole("button", { name: "Zoom comparison in" }).click();
+  await expect(page.getByText("125%", { exact: true })).toBeVisible();
 });
 
 test("timeline selection updates the evidence card", async ({ page }) => {
