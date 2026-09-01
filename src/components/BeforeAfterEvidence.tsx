@@ -3,25 +3,66 @@
 import { Minus, Plus, RotateCcw } from "lucide-react";
 import Image from "next/image";
 import { useRef, useState } from "react";
+import { trisuliRiver } from "@/data/trisuli-river";
+
+const IMAGE_WIDTH = 3200;
+const IMAGE_HEIGHT = 4500;
+const imageBounds = { west: 85.08, east: 85.4, south: 27.86, north: 28.31 };
+const floodRoute = trisuliRiver
+  .filter(
+    ([longitude, latitude]) =>
+      longitude >= imageBounds.west &&
+      longitude <= imageBounds.east &&
+      latitude >= imageBounds.south &&
+      latitude <= imageBounds.north,
+  )
+  .map(
+    ([longitude, latitude], index) =>
+      `${index ? "L" : "M"}${(((longitude - imageBounds.west) / (imageBounds.east - imageBounds.west)) * IMAGE_WIDTH).toFixed(1)},${(((imageBounds.north - latitude) / (imageBounds.north - imageBounds.south)) * IMAGE_HEIGHT).toFixed(1)}`,
+  )
+  .join("");
 
 export default function BeforeAfterEvidence() {
   const [divider, setDivider] = useState(50);
   const [zoom, setZoom] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const viewport = useRef<HTMLElement>(null);
   const drag = useRef<{ x: number; y: number; ox: number; oy: number } | null>(
     null,
   );
   const transform = `translate(${offset.x}px,${offset.y}px) scale(${zoom})`;
+  const constrain = (x: number, y: number, scale = zoom) => {
+    const bounds = viewport.current?.getBoundingClientRect();
+    if (!bounds) return { x: 0, y: 0 };
+    const baseWidth = Math.max(
+        bounds.width,
+        (bounds.height * IMAGE_WIDTH) / IMAGE_HEIGHT,
+      ),
+      baseHeight = Math.max(
+        bounds.height,
+        (bounds.width * IMAGE_HEIGHT) / IMAGE_WIDTH,
+      ),
+      maxX = Math.max(0, (baseWidth * scale - bounds.width) / 2),
+      maxY = Math.max(0, (baseHeight * scale - bounds.height) / 2);
+    return {
+      x: Math.max(-maxX, Math.min(maxX, x)),
+      y: Math.max(-maxY, Math.min(maxY, y)),
+    };
+  };
+  const changeZoom = (delta: number) => {
+    const next = Math.max(1, Math.min(2, zoom + delta));
+    setZoom(next);
+    setOffset((value) => constrain(value.x, value.y, next));
+  };
 
   return (
     <section
       className="comparison-view"
+      ref={viewport}
       data-testid="before-after-evidence"
       onWheel={(event) => {
         event.preventDefault();
-        setZoom((value) =>
-          Math.max(1, Math.min(2, value + (event.deltaY < 0 ? 0.2 : -0.2))),
-        );
+        changeZoom(event.deltaY < 0 ? 0.2 : -0.2);
       }}
       onPointerDown={(event) => {
         if ((event.target as HTMLElement).closest("button,input")) return;
@@ -35,26 +76,27 @@ export default function BeforeAfterEvidence() {
       }}
       onPointerMove={(event) => {
         if (drag.current && zoom > 1)
-          setOffset({
-            x: drag.current.ox + event.clientX - drag.current.x,
-            y: drag.current.oy + event.clientY - drag.current.y,
-          });
+          setOffset(
+            constrain(
+              drag.current.ox + event.clientX - drag.current.x,
+              drag.current.oy + event.clientY - drag.current.y,
+            ),
+          );
       }}
       onPointerUp={() => {
         drag.current = null;
       }}
     >
       <div className="comparison-image after-image">
-      <Image
-        fill
-        unoptimized
+        <Image
+          fill
+          unoptimized
           sizes="100vw"
           src="/media/rasuwa-after-2026-08-27.webp"
           alt="Sentinel-2 image acquired after the flood on 27 August 2026"
           draggable={false}
           style={{ transform }}
         />
-        <span>After · 27 Aug 2026</span>
       </div>
       <div
         className="comparison-image before-image"
@@ -69,8 +111,17 @@ export default function BeforeAfterEvidence() {
           draggable={false}
           style={{ transform }}
         />
-        <span>Before · 24 Aug 2026</span>
       </div>
+      <svg
+        className="comparison-route"
+        viewBox={`0 0 ${IMAGE_WIDTH} ${IMAGE_HEIGHT}`}
+        preserveAspectRatio="xMidYMid slice"
+        style={{ transform }}
+        aria-label="Highlighted flash-flood route"
+      >
+        <path className="comparison-route-halo" d={floodRoute} />
+        <path className="comparison-route-flow" d={floodRoute} />
+      </svg>
       <input
         className="swipe-control"
         aria-label="Before and after comparison divider"
@@ -83,15 +134,13 @@ export default function BeforeAfterEvidence() {
       <div className="swipe-divider" style={{ left: `${divider}%` }}>
         <i />
       </div>
-      <header className="comparison-title">
-        <span>Observed satellite comparison</span>
-        <h1>Rasuwa river corridor</h1>
-        <p>Drag the divider · scroll to zoom · drag the image to pan</p>
-      </header>
+      <h1 className="comparison-side-title before-title">Before flood</h1>
+      <h1 className="comparison-side-title after-title">After flood</h1>
+      <span className="route-legend">Flash-flood route</span>
       <div className="comparison-tools glass-panel">
         <button
           disabled={zoom >= 2}
-          onClick={() => setZoom((value) => Math.min(2, value + 0.25))}
+          onClick={() => changeZoom(0.25)}
           aria-label="Zoom comparison in"
         >
           <Plus size={15} />
@@ -101,7 +150,7 @@ export default function BeforeAfterEvidence() {
         </strong>
         <button
           disabled={zoom <= 1}
-          onClick={() => setZoom((value) => Math.max(1, value - 0.25))}
+          onClick={() => changeZoom(-0.25)}
           aria-label="Zoom comparison out"
         >
           <Minus size={15} />
@@ -117,17 +166,6 @@ export default function BeforeAfterEvidence() {
           <RotateCcw size={15} />
         </button>
       </div>
-      <aside className="comparison-meta glass-panel">
-        <strong>Sentinel-2 L2A · True colour</strong>
-        <span>Before: S2A_45RUL/45RUM_20260824</span>
-        <span>After: S2B_45RUL/45RUM_20260827</span>
-        <span>10 m source resolution · native-detail zoom capped at 200%</span>
-      </aside>
-      <p className="comparison-note">
-        High cloud cover affects both acquisitions. Differences may reflect
-        cloud, shadow, atmosphere, alignment, or processing and are not
-        automatically confirmed flood damage.
-      </p>
     </section>
   );
 }

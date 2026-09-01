@@ -19,23 +19,75 @@
   transition: transform 0.12s ease-out;
   user-select: none;
 }
-.comparison-image span {
+.comparison-route {
   position: absolute;
-  top: 92px;
-  padding: 8px 12px;
-  border-radius: 7px;
-  background: #071116d9;
-  border: 1px solid #ffffff2a;
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.05em;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 3;
+  pointer-events: none;
+  transform-origin: center;
+  transition: transform 0.12s ease-out;
+}
+.comparison-route path {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.comparison-route-halo {
+  stroke: #031016;
+  stroke-width: 25;
+  opacity: 0.72;
+}
+.comparison-route-flow {
+  stroke: #42d5ff;
+  stroke-width: 12;
+  stroke-dasharray: 18 13;
+  filter: drop-shadow(0 0 10px #25bfff);
+  animation: comparison-route-flow 9s linear infinite;
+}
+@keyframes comparison-route-flow {
+  to {
+    stroke-dashoffset: -62;
+  }
+}
+.comparison-side-title {
+  position: absolute;
+  z-index: 4;
+  top: 90px;
+  margin: 0;
+  padding: 10px 15px;
+  border: 1px solid #ffffff35;
+  border-radius: 8px;
+  background: #071116dd;
+  box-shadow: 0 8px 28px #0008;
+  font-size: 20px;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
-.before-image span {
+.before-title {
   left: 24px;
+  color: #dff5ff;
 }
-.after-image span {
+.after-title {
   right: 24px;
+  color: #ffd39a;
+}
+.route-legend {
+  position: absolute;
+  z-index: 4;
+  left: 50%;
+  bottom: 28px;
+  transform: translateX(-50%);
+  padding: 7px 11px;
+  border-radius: 20px;
+  background: #071116dd;
+  border: 1px solid #42d5ff66;
+  color: #8ee7ff;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 .swipe-control {
   position: absolute;
@@ -93,7 +145,8 @@
 .comparison-tools {
   z-index: 7;
   right: 22px;
-  top: 86px;
+  top: auto;
+  bottom: 22px;
   padding: 5px;
   display: flex;
   align-items: center;

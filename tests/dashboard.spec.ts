@@ -27,6 +27,10 @@ test("renders the 3D reconstruction and switchable interactive map", async ({ pa
   await page.getByRole("button", { name: "Before & after" }).click();
   await expect(page.getByTestId("before-after-evidence")).toBeVisible();
   await expect(page.locator(".comparison-image img")).toHaveCount(2);
+  await expect(page.getByRole("heading", { name: "Before flood" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "After flood" })).toBeVisible();
+  await expect(page.locator(".comparison-route-flow")).toBeVisible();
+  await expect(page.getByText("Observed satellite comparison")).toHaveCount(0);
   await page.getByLabel("Before and after comparison divider").fill("65");
   await expect(page.locator(".swipe-divider")).toHaveAttribute("style", /65%/);
   await page.getByRole("button", { name: "Zoom comparison in" }).click();
