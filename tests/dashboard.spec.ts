@@ -31,6 +31,9 @@ test("renders the 3D reconstruction and switchable interactive map", async ({ pa
   await expect(page.locator(".swipe-divider")).toHaveAttribute("style", /65%/);
   await page.getByRole("button", { name: "Zoom comparison in" }).click();
   await expect(page.getByText("125%", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Zoom comparison in" }).click({ clickCount: 3 });
+  await expect(page.getByText("Native max", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Zoom comparison in" })).toBeDisabled();
 });
 
 test("timeline selection updates the evidence card", async ({ page }) => {
